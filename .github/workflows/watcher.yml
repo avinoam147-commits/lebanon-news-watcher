@@ -61,6 +61,18 @@ jobs:
           restore-keys: |
             watcher-state-
 
+      - name: Confirm webhook secrets are present (names only)
+        run: |
+          python3 -c "
+          import os
+          u = bool((os.environ.get('LEB_WEBHOOK_URL') or '').strip())
+          k = bool((os.environ.get('LEB_WEBHOOK_KEY') or '').strip())
+          print('webhook_env_configured=', u and k)
+          print('url_set=', u, 'key_set=', k)
+          if not (u and k):
+              raise SystemExit('missing LEB_WEBHOOK_URL or LEB_WEBHOOK_KEY')
+          "
+
       - name: Run watcher
         # 21000s = 5 hours 50 minutes. Active hours, Shabbat hold-off,
         # rate limits and payloads are enforced inside watcher.py.

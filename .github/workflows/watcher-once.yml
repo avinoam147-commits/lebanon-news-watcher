@@ -1,0 +1,47 @@
+# Manual one-shot for verification or debugging. Force dry-run so this
+# workflow never POSTs the webhook, even if secrets are present.
+# Not in the long-loop concurrency group, so it can run while Watcher is active.
+
+name: Watcher once
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  once:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TZ: Asia/Jerusalem
+      PYTHONUNBUFFERED: "1"
+      LEB_WEBHOOK_URL: ${{ secrets.LEB_WEBHOOK_URL }}
+      LEB_WEBHOOK_KEY: ${{ secrets.LEB_WEBHOOK_KEY }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install requests
+        run: pip install --quiet requests
+
+      - name: Confirm webhook secrets are present (names only)
+        run: |
+          python3 -c "
+          import os
+          u = bool((os.environ.get('LEB_WEBHOOK_URL') or '').strip())
+          k = bool((os.environ.get('LEB_WEBHOOK_KEY') or '').strip())
+          print('webhook_env_configured=', u and k)
+          print('url_set=', u, 'key_set=', k)
+          if not (u and k):
+              raise SystemExit('missing LEB_WEBHOOK_URL or LEB_WEBHOOK_KEY')
+          "
+
+      - name: Run one cycle (dry-run, no webhook POST)
+        run: python3 watcher.py --once --dry-run

@@ -37,11 +37,15 @@ printf '%s' "$LEB_WEBHOOK_URL" | gh secret set LEB_WEBHOOK_URL --repo avinoam147
 printf '%s' "$LEB_WEBHOOK_KEY" | gh secret set LEB_WEBHOOK_KEY --repo avinoam147-commits/lebanon-news-watcher
 ```
 
-Manual start:
+Manual start of the long loop:
 
 ```bash
 gh workflow run Watcher --repo avinoam147-commits/lebanon-news-watcher
 ```
+
+A separate `Watcher once` workflow runs a single dry-run cycle (no webhook
+POST) and is useful to confirm all channels fetch. It is not in the long
+loop's concurrency group.
 
 Pause (for example before starting a local fallback):
 
