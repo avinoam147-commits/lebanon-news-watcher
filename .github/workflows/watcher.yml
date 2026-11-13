@@ -1,0 +1,76 @@
+# Poll public Telegram pages every 2 minutes and POST a webhook on major
+# breaking Lebanon/Hezbollah news. No AI.
+#
+# Design: GitHub only schedules workflows every 5 minutes at most, and a
+# job may run for up to 6 hours. This workflow starts on cron */5, but a
+# concurrency group keeps a single loop running. Each job loops for 5h50m
+# (leaving ~10 minutes to save state). The next cron run waits in the
+# queue (cancel-in-progress: false; GitHub keeps only the latest pending
+# run). When the current job exits, the queued job starts immediately,
+# so there is no gap.
+#
+# Secrets (repo Actions secrets, never in git):
+#   LEB_WEBHOOK_URL
+#   LEB_WEBHOOK_KEY
+#
+# State (seen post ids, rate-limit counters, shabbat_entry dates, hebcal
+# cache) is stored in the Actions cache. It does not contain secrets.
+
+name: Watcher
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: lebanon-news-watcher
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      TZ: Asia/Jerusalem
+      PYTHONUNBUFFERED: "1"
+      LEB_WEBHOOK_URL: ${{ secrets.LEB_WEBHOOK_URL }}
+      LEB_WEBHOOK_KEY: ${{ secrets.LEB_WEBHOOK_KEY }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install requests
+        run: pip install --quiet requests
+
+      - name: Restore watcher state
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            state.json
+            shabbat-cache.json
+          key: watcher-state-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            watcher-state-
+
+      - name: Run watcher
+        # 21000s = 5 hours 50 minutes. Active hours, Shabbat hold-off,
+        # rate limits and payloads are enforced inside watcher.py.
+        run: python3 watcher.py --loop --max-runtime 21000
+
+      - name: Save watcher state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            state.json
+            shabbat-cache.json
+          key: watcher-state-${{ github.run_id }}-${{ github.run_attempt }}

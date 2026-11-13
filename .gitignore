@@ -1,0 +1,18 @@
+# Runtime state and logs — never commit these (and they must not contain secrets)
+state.json
+state.json.tmp
+shabbat-cache.json
+shabbat-cache.json.tmp
+watcher.log
+watcher.log.*
+watcher.pid
+watcher.lock
+calibration.json
+.env
+.env.*
+__pycache__/
+*.pyc
+*.pyo
+*.bak
+.venv/
+venv/
